@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Binance Bot Dashboard</title>
+<style>
+  :root {
+    --bg: #0d1117; --card: #161b22; --border: #30363d;
+    --green: #3fb950; --red: #f85149; --yellow: #d29922;
+    --text: #e6edf3; --muted: #8b949e; --blue: #58a6ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+  header { background: var(--card); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  header h1 { font-size: 1.1rem; font-weight: 600; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; display: inline-block; margin-right: 8px; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+  .card .label { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+  .card .value { font-size: 1.6rem; font-weight: 700; }
+  .card .sub { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .green { color: var(--green); }
+  .red   { color: var(--red); }
+  .blue  { color: var(--blue); }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 10px 12px; font-size: .75rem; color: var(--muted); text-transform: uppercase; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; font-size: .85rem; border-bottom: 1px solid #21262d; vertical-align: middle; }
+  tr:hover td { background: #1c2128; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: .75rem; font-weight: 600; }
+  .badge.buy  { background: rgba(63,185,80,.15); color: var(--green); }
+  .badge.sell { background: rgba(248,81,73,.15); color: var(--red); }
+  .section-title { font-size: .85rem; font-weight: 600; color: var(--muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  .config-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+  input, select { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: .85rem; width: 100%; outline: none; }
+  input:focus, select:focus { border-color: var(--blue); }
+  .config-group { flex: 1; min-width: 180px; }
+  .config-group label { display: block; font-size: .75rem; color: var(--muted); margin-bottom: 4px; }
+  button { background: var(--blue); color: #000; border: none; padding: 9px 20px; border-radius: 6px; font-size: .85rem; font-weight: 600; cursor: pointer; transition: opacity .2s; }
+  button:hover { opacity: .85; }
+  button.danger { background: var(--red); color: #fff; }
+  #status { font-size: .8rem; color: var(--muted); }
+  .empty { text-align: center; padding: 40px; color: var(--muted); font-size: .9rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="dot"></span> Binance Bot Dashboard</h1>
+  <span id="status">Connecting…</span>
+</header>
+
+<div class="container">
+
+  <!-- ── Config ── -->
+  <div class="card" style="margin-bottom:24px">
+    <p class="section-title">🔧 Firebase Connection</p>
+    <div class="config-row">
+      <div class="config-group" style="flex:2">
+        <label>Firebase Realtime DB URL</label>
+        <input id="fbUrl" type="text" placeholder="https://your-project-default-rtdb.firebaseio.com"/>
+      </div>
+      <div class="config-group" style="flex:0; display:flex; align-items:flex-end;">
+        <button onclick="connect()">Connect</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Stats ── -->
+  <div class="grid">
+    <div class="card">
+      <div class="label">USDT Balance</div>
+      <div class="value blue" id="balance">—</div>
+      <div class="sub" id="balanceTime">—</div>
+    </div>
+    <div class="card">
+      <div class="label">Total Trades</div>
+      <div class="value" id="totalTrades">—</div>
+      <div class="sub">since bot started</div>
+    </div>
+    <div class="card">
+      <div class="label">Win Rate</div>
+      <div class="value green" id="winRate">—</div>
+      <div class="sub" id="winDetail">—</div>
+    </div>
+    <div class="card">
+      <div class="label">Network</div>
+      <div class="value" id="network" style="font-size:1.1rem">—</div>
+      <div class="sub">testnet / live</div>
+    </div>
+  </div>
+
+  <!-- ── Trades ── -->
+  <div class="card">
+    <p class="section-title">📋 Recent Trades</p>
+    <div id="tradesWrap">
+      <div class="empty">Connect to Firebase to load trades.</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let fbBase = localStorage.getItem("fbUrl") || "";
+if (fbBase) {
+  document.getElementById("fbUrl").value = fbBase;
+  loadData();
+}
+
+function connect() {
+  fbBase = document.getElementById("fbUrl").value.trim().replace(/\/$/, "");
+  localStorage.setItem("fbUrl", fbBase);
+  loadData();
+}
+
+async function loadData() {
+  document.getElementById("status").textContent = "Loading…";
+  try {
+    await Promise.all([loadSnapshots(), loadTrades()]);
+    document.getElementById("status").textContent = "Last updated: " + new Date().toLocaleTimeString();
+  } catch(e) {
+    document.getElementById("status").textContent = "Error: " + e.message;
+  }
+}
+
+async function loadSnapshots() {
+  const r = await fetch(`${fbBase}/snapshots.json?orderBy="$key"&limitToLast=1`);
+  const d = await r.json();
+  if (!d) return;
+  const snap = Object.values(d)[0];
+  document.getElementById("balance").textContent = "$" + parseFloat(snap.balance).toFixed(2);
+  document.getElementById("balanceTime").textContent = new Date(snap.time).toLocaleString();
+  document.getElementById("network").textContent = snap.testnet ? "🧪 Testnet" : "💵 Live";
+}
+
+async function loadTrades() {
+  const r = await fetch(`${fbBase}/trades.json?orderBy="$key"&limitToLast=50`);
+  const d = await r.json();
+  if (!d) {
+    document.getElementById("tradesWrap").innerHTML = '<div class="empty">No trades yet.</div>';
+    return;
+  }
+  const trades = Object.values(d).reverse();
+  document.getElementById("totalTrades").textContent = trades.length;
+
+  // Win rate (assume TP hit if trade exists — in real version track outcomes)
+  document.getElementById("winRate").textContent = "—";
+  document.getElementById("winDetail").textContent = "tracking coming soon";
+
+  const rows = trades.map(t => `
+    <tr>
+      <td>${new Date(t.time).toLocaleString()}</td>
+      <td><strong>${t.symbol}</strong></td>
+      <td><span class="badge ${t.side.toLowerCase()}">${t.side}</span></td>
+      <td>$${parseFloat(t.entry).toLocaleString()}</td>
+      <td>${t.qty}</td>
+      <td class="red">$${parseFloat(t.sl).toLocaleString()}</td>
+      <td class="green">$${parseFloat(t.tp).toLocaleString()}</td>
+    </tr>
+  `).join("");
+
+  document.getElementById("tradesWrap").innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Time</th><th>Symbol</th><th>Side</th>
+        <th>Entry</th><th>Qty</th><th>Stop Loss</th><th>Take Profit</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// Auto-refresh every 60s
+setInterval(() => { if (fbBase) loadData(); }, 60000);
+</script>
+</body>
+</html>

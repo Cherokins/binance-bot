@@ -1,0 +1,35 @@
+name: Binance Trading Bot
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # Every 30 minutes
+  workflow_dispatch:           # Manual trigger from GitHub UI
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28        # stay under 30-min GH Actions limit
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Trading Bot
+        env:
+          BINANCE_API_KEY:    ${{ secrets.BINANCE_API_KEY }}
+          BINANCE_SECRET_KEY: ${{ secrets.BINANCE_SECRET_KEY }}
+          FIREBASE_URL:       ${{ secrets.FIREBASE_URL }}
+          TESTNET:            ${{ secrets.TESTNET }}       # set to "false" for live
+          TRADE_USDT:         ${{ secrets.TRADE_USDT }}    # e.g. "20"
+          CYCLES:             "6"                          # 6 cycles × 60s = 6 min active
+          SLEEP_SECS:         "60"
+        run: python bot.py
