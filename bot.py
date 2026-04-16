@@ -1,6 +1,6 @@
 """
 ╔══════════════════════════════════════════════════════╗
-║         BINANCE SMART BOT — by pesaprint             ║
+║         BINANCE SMART BOT — by Elvis             ║
 ║  Multi-Strategy | Risk-Managed | Firebase Logging    ║
 ╚══════════════════════════════════════════════════════╝
 """
@@ -31,7 +31,9 @@ CANDLES    = 200          # lookback candles for indicators
 TRADE_USDT = float(os.environ.get("TRADE_USDT", "20"))  # per trade
 
 # ── Init ──────────────────────────────────────────────
-client   = Client(API_KEY, API_SECRET, testnet=TESTNET)
+client = Client(API_KEY, API_SECRET, testnet=TESTNET)
+if TESTNET:
+    client.API_URL = 'https://testnet.binance.vision/api'
 engine   = SignalEngine()
 risk_mgr = RiskManager(client)
 fb       = FirebaseLogger()
