@@ -33,6 +33,7 @@ TRADE_USDT = float(os.environ.get("TRADE_USDT", "20"))  # per trade
 # ── Init ──────────────────────────────────────────────
 if TESTNET:
     client.API_URL = 'https://testnet.binance.vision/api'
+    client = Client(API_KEY, API_SECRET, testnet=TESTNET)
 engine   = SignalEngine()
 risk_mgr = RiskManager(client)
 fb       = FirebaseLogger()
